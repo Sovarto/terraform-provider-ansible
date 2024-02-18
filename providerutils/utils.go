@@ -135,6 +135,41 @@ func BuildPlaybookInventory(
 	return tempFileName, diags
 }
 
+func BuildDynamicPlaybookInventory(inventoryDest string, stateFilePath string, projectPath string) (string, diag.Diagnostics) {
+	var diags diag.Diagnostics
+	// Check if inventory file is already present
+	// if not, create one
+	fileInfo, err := os.CreateTemp("", inventoryDest)
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  fmt.Sprintf("Fail to create inventory file: %v", err),
+		})
+	}
+
+	tempFileName := fileInfo.Name()
+	log.Printf("Inventory %s was created", fileInfo.Name())
+
+	content := "---\nplugin: cloud.terraform.terraform_provider\n"
+	if stateFilePath != "" {
+		content += fmt.Sprintf("state_file: %s\n", stateFilePath)
+	}
+	if projectPath != "" {
+		content += fmt.Sprintf("project_path: %s\n", projectPath)
+	}
+	
+	err = os.WriteFile(tempFileName, []byte(content), 0644)
+
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  fmt.Sprintf("Fail to create inventory: %v", err),
+		})
+	}
+
+	return tempFileName, diags
+}
+
 func RemoveFile(filename string) diag.Diagnostics {
 	var diags diag.Diagnostics
 
