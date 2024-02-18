@@ -1,6 +1,6 @@
 provider_installation {
   dev_overrides {
-    "ansible/ansible" = "../../.."
+    "sovarto/ansible" = "../../.."
   }
 
   direct {}

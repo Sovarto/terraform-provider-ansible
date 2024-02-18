@@ -9,7 +9,7 @@
       "mode": "managed",
       "type": "ansible_group",
       "name": "group",
-      "provider": "provider[\"registry.terraform.io/ansible/ansible\"]",
+      "provider": "provider[\"registry.terraform.io/sovarto/ansible\"]",
       "instances": [
         {
           "schema_version": 0,
@@ -32,7 +32,7 @@
       "mode": "managed",
       "type": "ansible_host",
       "name": "host",
-      "provider": "provider[\"registry.terraform.io/ansible/ansible\"]",
+      "provider": "provider[\"registry.terraform.io/sovarto/ansible\"]",
       "instances": [
         {
           "schema_version": 0,
@@ -102,7 +102,7 @@
       "mode": "managed",
       "type": "ansible_vault",
       "name": "secrets",
-      "provider": "provider[\"registry.terraform.io/ansible/ansible\"]",
+      "provider": "provider[\"registry.terraform.io/sovarto/ansible\"]",
       "instances": [
         {
           "schema_version": 0,

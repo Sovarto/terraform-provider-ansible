@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/ansible/terraform-provider-ansible/provider"
+	"github.com/sovarto/terraform-provider-ansible/provider"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
 )
 
