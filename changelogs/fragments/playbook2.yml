@@ -1,2 +1,0 @@
-major_changes:
-  - "Added ansible_playbook2 resource which automatically creates a dynamic inventory based on the ansible_host and ansible_group resources."
