@@ -563,7 +563,7 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 		})
 	}
 
-	keep_temporary_inventory_file, okay := data.Get("keep_temporary_inventory_file").(bool)
+	keepTemporaryInventoryFile, okay := data.Get("keep_temporary_inventory_file").(bool)
 
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
@@ -702,7 +702,7 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 		log.Printf("LOG [ansible-playbook]: didn't wait for playbook to execute: %v", err)
 	}
 
-	if !keep_temporary_inventory_file {
+	if !keepTemporaryInventoryFile {
 		diagsFromUtils := providerutils.RemoveFile(tempInventoryFile)
 
 		diags = append(diags, diagsFromUtils...)
