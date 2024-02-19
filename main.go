@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/sovarto/terraform-provider-ansible/provider"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/plugin"
+	"github.com/sovarto/terraform-provider-ansible/provider"
 )
 
 // Generate the Terraform provider documentation using `tfplugindocs`:

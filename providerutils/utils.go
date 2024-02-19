@@ -157,7 +157,7 @@ func BuildDynamicPlaybookInventory(inventoryDest string, stateFilePath string, p
 	if projectPath != "" {
 		content += fmt.Sprintf("project_path: %s\n", projectPath)
 	}
-	
+
 	err = os.WriteFile(tempFileName, []byte(content), 0644)
 
 	if err != nil {
