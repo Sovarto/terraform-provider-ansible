@@ -2,7 +2,6 @@ package providerutils
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -124,7 +123,6 @@ func BuildPlaybookInventory(
 	}
 
 	err = inventory.SaveTo(tempFileName)
-
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -158,8 +156,7 @@ func BuildDynamicPlaybookInventory(inventoryDest string, stateFilePath string, p
 		content += fmt.Sprintf("project_path: %s\n", projectPath)
 	}
 
-	err = os.WriteFile(tempFileName, []byte(content), 0644)
-
+	err = os.WriteFile(tempFileName, []byte(content), 0600)
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
@@ -191,7 +188,7 @@ func GetAllInventories(inventoryPrefix string) ([]string, diag.Diagnostics) {
 
 	log.Printf("[TEMP DIR]: %s", tempDir)
 
-	files, err := ioutil.ReadDir(tempDir)
+	files, err := os.ReadDir(tempDir)
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
