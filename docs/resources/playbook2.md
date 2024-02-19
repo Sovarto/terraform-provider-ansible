@@ -9,11 +9,11 @@ description: |-
 # ansible_playbook2 (Resource)
 
 Provides an Ansible playbook resource that dynamically generates an inventory based the `ansible_host` and `ansible_group` resources in your project.  
-Make sure you've installed the `cloud.terraform` collection via `ansible-galaxy collection install cloud.terraform`:
+Make sure you've installed the `cloud.terraform` collection via `ansible-galaxy collection install cloud.terraform`.
 
 ## Example Usage
 ```terraform
-resource "ansible_playbook" "playbook" {
+resource "ansible_playbook2" "playbook" {
   playbook     = "playbook.yml"
   replayable   = true
   state_file   = "terraform.my-stack.tfstate"
@@ -40,13 +40,13 @@ resource "ansible_playbook" "playbook" {
 - `diff_mode` (Boolean) If 'true', when changing (small) files and templates, differences in those files will be shown. Recommended usage with 'check_mode'.
 - `extra_vars` (Map of String) A map of additional variables as: { key-1 = value-1, key-2 = value-2, ... }.
 - `force_handlers` (Boolean) If 'true', run handlers even if a task fails.
-- `groups` (List of String) List of desired groups of hosts on which the playbook will be executed.
 - `ignore_playbook_failure` (Boolean) This parameter is good for testing. Set to 'true' if the desired playbook is meant to fail, but still want the resource to run successfully.
+- `keep_temporary_inventory_file` (Boolean) If 'true' will not delete the temporary inventory file. Use for troubleshooting outside of Terraform.
 - `limit` (List of String) List of hosts to exclude from the playbook execution.
 - `name` (String) Name of the desired host on which the playbook will be executed.
-- `project_path` (String) The path to the Terraform project. When using CDKTF, set this to the folder with the name of your stack inside cdktf.out/stacks
+- `project_path` (String) The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info
 - `replayable` (Boolean) If 'true', the playbook will be executed on every 'terraform apply' and with that, the resource will be recreated. If 'false', the playbook will be executed only on the first 'terraform apply'. Note, that if set to 'true', when doing 'terraform destroy', it might not show in the destroy output, even though the resource still gets destroyed.
-- `state_file` (String) The path to the Terraform state file. When using CDKTF, set this to the tfstate file of your stack.
+- `state_file` (String) The path to the Terraform state file. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info.
 - `tags` (List of String) List of tags of plays and tasks to run.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `var_files` (List of String) List of variable files.
