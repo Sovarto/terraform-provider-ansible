@@ -137,7 +137,6 @@ func resourcePlaybook2() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    false,
 				Optional:    true,
-				Default:     false,
 				Description: "The path to the Terraform state file. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info.",
 			},
 
@@ -145,7 +144,6 @@ func resourcePlaybook2() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    false,
 				Optional:    true,
-				Default:     false,
 				Description: "The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info",
 			},
 
