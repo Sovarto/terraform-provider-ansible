@@ -116,6 +116,14 @@ func resourcePlaybook2() *schema.Resource {
 					"Recommended usage with 'check_mode'.",
 			},
 
+			"keep_temporary_inventory_file": {
+				Type:        schema.TypeBool,
+				Required:    false,
+				Optional:    true,
+				Default:     false,
+				Description: "If 'true' will not delete the temporary inventory file. Use for troubleshooting outside of Terraform.",
+			},
+
 			// connection configs are handled with extra_vars
 			"force_handlers": {
 				Type:        schema.TypeBool,
@@ -130,7 +138,7 @@ func resourcePlaybook2() *schema.Resource {
 				Required:    false,
 				Optional:    true,
 				Default:     false,
-				Description: "The path to the Terraform state file. When using CDKTF, set this to the tfstate file of your stack.",
+				Description: "The path to the Terraform state file. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info.",
 			},
 
 			"project_path": {
@@ -138,7 +146,7 @@ func resourcePlaybook2() *schema.Resource {
 				Required:    false,
 				Optional:    true,
 				Default:     false,
-				Description: "The path to the Terraform project. When using CDKTF, set this to the folder with the name of your stack inside cdktf.out/stacks",
+				Description: "The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info",
 			},
 
 			// become configs are handled with extra_vars --> these are also connection configs
@@ -512,6 +520,7 @@ func resourcePlaybook2Read(ctx context.Context, data *schema.ResourceData, meta 
 			Detail:   ansiblePlaybook2,
 		})
 	}
+
 	// if (replayable == true) --> then we want to recreate (reapply) this resource: exits == false
 	// if (replayable == false) --> we don't want to recreate (reapply) this resource: exists == true
 	if replayable {
@@ -550,6 +559,16 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "ERROR [%s]: couldn't get 'ignore_playbook_failure'!",
+			Detail:   ansiblePlaybook2,
+		})
+	}
+
+	keep_temporary_inventory_file, okay := data.Get("keep_temporary_inventory_file").(bool)
+
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR [%s]: couldn't get 'keep_temporary_inventory_file'!",
 			Detail:   ansiblePlaybook2,
 		})
 	}
@@ -683,16 +702,18 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 		log.Printf("LOG [ansible-playbook]: didn't wait for playbook to execute: %v", err)
 	}
 
-	diagsFromUtils := providerutils.RemoveFile(tempInventoryFile)
+	if !keep_temporary_inventory_file {
+		diagsFromUtils := providerutils.RemoveFile(tempInventoryFile)
 
-	diags = append(diags, diagsFromUtils...)
+		diags = append(diags, diagsFromUtils...)
 
-	if err := data.Set("temp_inventory_file", ""); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR [ansible-playbook]: couldn't set 'temp_inventory_file'!",
-			Detail:   ansiblePlaybook2,
-		})
+		if err := data.Set("temp_inventory_file", ""); err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "ERROR [ansible-playbook]: couldn't set 'temp_inventory_file'!",
+				Detail:   ansiblePlaybook2,
+			})
+		}
 	}
 
 	// *******************************************************************************
