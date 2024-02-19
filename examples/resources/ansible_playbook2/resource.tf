@@ -1,4 +1,4 @@
-resource "ansible_playbook" "playbook" {
+resource "ansible_playbook2" "playbook" {
   playbook     = "playbook.yml"
   replayable   = true
   state_file   = "terraform.my-stack.tfstate"
