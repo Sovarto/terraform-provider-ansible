@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os/exec"
@@ -150,10 +151,9 @@ func resourcePlaybook2() *schema.Resource {
 			// become configs are handled with extra_vars --> these are also connection configs
 			"extra_vars": {
 				Type:        schema.TypeMap,
-				Elem:        &schema.Schema{Type: schema.TypeString},
 				Required:    false,
 				Optional:    true,
-				Description: "A map of additional variables as: { key-1 = value-1, key-2 = value-2, ... }.",
+				Description: "A map of additional variables as: { keyString = \"value-1\", keyList = [\"list-value-1\", \"list-value-2\"], ... }.",
 			},
 
 			"var_files": { // adds @ at the beginning of filename
@@ -465,19 +465,26 @@ func resourcePlaybook2Create(ctx context.Context, data *schema.ResourceData, met
 
 	if len(extraVars) != 0 {
 		for key, val := range extraVars {
-			tmpVal, okay := val.(string)
-			if !okay {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "ERROR [ansible-playbook]: couldn't assert type: string",
-					Detail:   ansiblePlaybook2,
-				})
+			// Directly use the value if it's a string
+			if strVal, ok := val.(string); ok {
+				args = append(args, "-e", key+"="+strVal)
+			} else {
+				// For non-string values, create a JSON object with key-value pair
+				jsonMap := map[string]interface{}{key: val}
+				jsonBytes, err := json.Marshal(jsonMap)
+				if err != nil {
+					diags = append(diags, diag.Diagnostic{
+						Severity: diag.Error,
+						Summary:  fmt.Sprintf("ERROR [ansible-playbook]: couldn't convert value to JSON for key '%s'", key),
+						Detail:   ansiblePlaybook2,
+					})
+					continue
+				}
+				jsonStr := string(jsonBytes)
+				args = append(args, "-e", jsonStr)
 			}
-
-			args = append(args, "-e", key+"="+tmpVal)
 		}
 	}
-
 	args = append(args, playbook)
 
 	// set up the args

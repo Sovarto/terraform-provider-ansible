@@ -38,7 +38,7 @@ resource "ansible_playbook2" "playbook" {
 - `ansible_playbook_binary` (String) Path to ansible-playbook executable (binary).
 - `check_mode` (Boolean) If 'true', playbook execution won't make any changes but only change predictions will be made.
 - `diff_mode` (Boolean) If 'true', when changing (small) files and templates, differences in those files will be shown. Recommended usage with 'check_mode'.
-- `extra_vars` (Map of String) A map of additional variables as: { key-1 = value-1, key-2 = value-2, ... }.
+- `extra_vars` (Map of String) A map of additional variables as: { keyString = "value-1", keyList = ["list-value-1", "list-value-2"], ... }.
 - `force_handlers` (Boolean) If 'true', run handlers even if a task fails.
 - `ignore_playbook_failure` (Boolean) This parameter is good for testing. Set to 'true' if the desired playbook is meant to fail, but still want the resource to run successfully.
 - `keep_temporary_inventory_file` (Boolean) If 'true' will not delete the temporary inventory file. Use for troubleshooting outside of Terraform.
