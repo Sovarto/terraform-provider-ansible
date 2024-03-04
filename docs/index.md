@@ -18,8 +18,8 @@ Use the navigation to the left to read about the available resources.
 terraform {
   required_providers {
     ansible = {
-      version = "~> 1.2.2"
-      source  = "ansible/ansible"
+      version = "~> 1.3.0"
+      source  = "sovarto/ansible"
     }
   }
 }

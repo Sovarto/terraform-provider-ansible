@@ -1,7 +1,7 @@
 terraform {
   required_providers {
     ansible = {
-      source  = "ansible/ansible"
+      source  = "sovarto/ansible"
       version = "~> 1.1.0"
     }
     docker = {
