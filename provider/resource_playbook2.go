@@ -717,6 +717,9 @@ func resourcePlaybook2Update(ctx context.Context, data *schema.ResourceData, _ i
 
 	if err != nil {
 		playbookFailMsg := stderrBuf.String()
+		if playbookFailMsg == "" {
+			tflog.Error(ctx, "playbookfFailMsg is empty although it shouldn't")
+		}
 		if !ignorePlaybookFailure {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
