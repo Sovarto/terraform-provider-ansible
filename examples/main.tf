@@ -1,8 +1,8 @@
 terraform {
   required_providers {
     ansible = {
-      version = "~> 1.2.2"
-      source  = "ansible/ansible"
+      version = "~> 1.4.0"
+      source  = "sovarto/ansible"
     }
   }
 }
