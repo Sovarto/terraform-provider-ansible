@@ -156,7 +156,7 @@ func BuildDynamicPlaybookInventory(inventoryDest string, stateFilePath string, p
 		content += fmt.Sprintf("project_path: %s\n", projectPath)
 	}
 
-	err = os.WriteFile(tempFileName, []byte(content), 0600)
+	err = os.WriteFile(tempFileName, []byte(content), 0o600)
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
