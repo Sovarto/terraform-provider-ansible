@@ -1,14 +1,19 @@
 package provider
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/hashicorp/terraform-plugin-log/tflog"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/sovarto/terraform-provider-ansible/providerutils"
@@ -536,7 +541,7 @@ func resourcePlaybook2Read(ctx context.Context, data *schema.ResourceData, meta 
 	return diags
 }
 
-func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
+func resourcePlaybook2Update(ctx context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
 	ansiblePlaybookBinary, okay := data.Get("ansible_playbook_binary").(string)
@@ -659,11 +664,59 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 
 	runAnsiblePlay := exec.Command(ansiblePlaybookBinary, args...)
 
-	runAnsiblePlayOut, runAnsiblePlayErr := runAnsiblePlay.CombinedOutput()
-	ansiblePlayStderrString := ""
+	// Create pipes for the output and error streams
+	stdoutPipe, _ := runAnsiblePlay.StdoutPipe()
+	// if err != nil {
+		// TODO: handle error
+	// }
 
-	if runAnsiblePlayErr != nil {
-		playbookFailMsg := string(runAnsiblePlayOut)
+	stderrPipe, _ := runAnsiblePlay.StderrPipe()
+	// if err != nil {
+		// TODO: handle error
+	// }
+
+	// Start the command asynchronously
+	runAnsiblePlay.Start()
+	// if err := runAnsiblePlay.Start(); err != nil {
+		// TODO: handle error
+	// }
+
+	// Use a wait group to wait for the output processing to complete
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	var stderrBuf bytes.Buffer
+	
+	// Function to read and process output
+	processOutput := func(pipe io.ReadCloser, isStderr bool) {
+		defer wg.Done()
+
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if isStderr {
+				tflog.Error(ctx, line)
+				stderrBuf.WriteString(line + "\n")
+			} else {
+				tflog.Debug(ctx, line)
+			}
+		}
+
+		// if err := scanner.Err(); err != nil {
+			// TODO: handle error
+		// }
+	}
+
+	// Read from both outputs in separate goroutines
+	go processOutput(stdoutPipe, false)
+	go processOutput(stderrPipe, true)
+
+	// Wait for the command to finish
+	err := runAnsiblePlay.Wait()
+	wg.Wait() // Also wait for output processing to complete
+
+	if err != nil {
+		playbookFailMsg := stderrBuf.String()
 		if !ignorePlaybookFailure {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
@@ -671,40 +724,12 @@ func resourcePlaybook2Update(_ context.Context, data *schema.ResourceData, _ int
 				Detail:   ansiblePlaybook2,
 			})
 		} else {
-			log.Print(playbookFailMsg)
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Warning,
 				Summary:  playbookFailMsg,
 				Detail:   ansiblePlaybook2,
 			})
 		}
-
-		ansiblePlayStderrString = runAnsiblePlayErr.Error()
-	}
-	// Set the ansible_playbook_stdout to the CLI stdout of call "ansible-playbook" command above
-	if err := data.Set("ansible_playbook_stdout", string(runAnsiblePlayOut)); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't set 'ansible_playbook_stdout' ",
-			Detail:   ansiblePlaybook2,
-		})
-	}
-
-	// Set the ansible_playbook_stderr to the CLI stderr of call "ansible-playbook" command above
-	if err := data.Set("ansible_playbook_stderr", ansiblePlayStderrString); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't set 'ansible_playbook_stderr' ",
-			Detail:   ansiblePlaybook2,
-		})
-	}
-
-	log.Printf("LOG [ansible-playbook]: %s", runAnsiblePlayOut)
-
-	// Wait for playbook execution to finish, then remove the temporary file
-	err := runAnsiblePlay.Wait()
-	if err != nil {
-		log.Printf("LOG [ansible-playbook]: didn't wait for playbook to execute: %v", err)
 	}
 
 	if !keepTemporaryInventoryFile {
