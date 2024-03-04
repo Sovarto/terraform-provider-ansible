@@ -137,14 +137,14 @@ func resourcePlaybook2() *schema.Resource {
 				Type:        schema.TypeString,
 				Required:    false,
 				Optional:    true,
-				Description: "The path to the Terraform state file. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info.",
+				Description: "The path to the Terraform state file. See [the cloud.terraform documentation](https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters) for more info.",
 			},
 
 			"project_path": {
 				Type:        schema.TypeString,
 				Required:    false,
 				Optional:    true,
-				Description: "The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info",
+				Description: "The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [the cloud.terraform documentation](https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters) for more info",
 			},
 
 			// become configs are handled with extra_vars --> these are also connection configs

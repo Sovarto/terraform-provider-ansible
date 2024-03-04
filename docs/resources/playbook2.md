@@ -44,9 +44,9 @@ resource "ansible_playbook2" "playbook" {
 - `keep_temporary_inventory_file` (Boolean) If 'true' will not delete the temporary inventory file. Use for troubleshooting outside of Terraform.
 - `limit` (List of String) List of hosts to exclude from the playbook execution.
 - `name` (String) Name of the desired host on which the playbook will be executed.
-- `project_path` (String) The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info
+- `project_path` (String) The path to the Terraform project. When using CDKTF, set this to the folder of your stack inside cdktf.out/stacks, e.g. cdktf.out/stacks/mystack. See [the cloud.terraform documentation](https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters) for more info
 - `replayable` (Boolean) If 'true', the playbook will be executed on every 'terraform apply' and with that, the resource will be recreated. If 'false', the playbook will be executed only on the first 'terraform apply'. Note, that if set to 'true', when doing 'terraform destroy', it might not show in the destroy output, even though the resource still gets destroyed.
-- `state_file` (String) The path to the Terraform state file. See [https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters](the cloud.terraform documentation) for more info.
+- `state_file` (String) The path to the Terraform state file. See [the cloud.terraform documentation](https://github.com/ansible-collections/cloud.terraform/blob/main/docs/cloud.terraform.terraform_provider_inventory.rst#parameters) for more info.
 - `tags` (List of String) List of tags of plays and tasks to run.
 - `timeouts` (Block, Optional) (see [below for nested schema](#nestedblock--timeouts))
 - `var_files` (List of String) List of variable files.
