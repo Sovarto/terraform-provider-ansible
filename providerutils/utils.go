@@ -5,11 +5,9 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
-	"gopkg.in/ini.v1"
 )
 
 /*
@@ -53,15 +51,7 @@ func CreateVerboseSwitch(verbosity int) string {
 	return verbose
 }
 
-// Build inventory.ini (NOT YAML)
-//  -- building inventory.ini is easier
-
-func BuildPlaybookInventory(
-	inventoryDest string,
-	hostname string,
-	port int,
-	hostgroups []interface{},
-) (string, diag.Diagnostics) {
+func BuildInventory(inventoryDest string, inventoryContent string) (string, diag.Diagnostics) {
 	var diags diag.Diagnostics
 	// Check if inventory file is already present
 	// if not, create one
@@ -69,98 +59,18 @@ func BuildPlaybookInventory(
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to create inventory file: %v", err),
+			Summary:  fmt.Sprintf("Failed to create inventory file: %v", err),
 		})
 	}
 
 	tempFileName := fileInfo.Name()
 	log.Printf("Inventory %s was created", fileInfo.Name())
 
-	// Then, read inventory and add desired settings to it
-	inventory, err := ini.Load(tempFileName)
+	err = os.WriteFile(tempFileName, []byte(inventoryContent), 0o600)
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to read inventory: %v", err),
-		})
-	}
-
-	tempHostgroups := hostgroups
-
-	if len(tempHostgroups) == 0 {
-		tempHostgroups = append(tempHostgroups, DefaultHostGroup)
-	}
-
-	if len(tempHostgroups) > 0 { // if there is a list of groups specified for the desired host
-		for _, hostgroup := range tempHostgroups {
-			hostgroupStr, okay := hostgroup.(string)
-			if !okay {
-				diags = append(diags, diag.Diagnostic{
-					Severity: diag.Error,
-					Summary:  "Couldn't assert type: string",
-				})
-			}
-
-			if !inventory.HasSection(hostgroupStr) {
-				_, err := inventory.NewRawSection(hostgroupStr, "")
-				if err != nil {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Error,
-						Summary:  fmt.Sprintf("Fail to create a hostgroup: %v", err),
-					})
-				}
-			}
-
-			if !inventory.Section(hostgroupStr).HasKey(hostname) {
-				body := hostname
-				if port != -1 {
-					body += " ansible_port=" + strconv.Itoa(port)
-				}
-
-				inventory.Section(hostgroupStr).SetBody(body)
-			}
-		}
-	}
-
-	err = inventory.SaveTo(tempFileName)
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to create inventory: %v", err),
-		})
-	}
-
-	return tempFileName, diags
-}
-
-func BuildDynamicPlaybookInventory(inventoryDest string, stateFilePath string, projectPath string) (string, diag.Diagnostics) {
-	var diags diag.Diagnostics
-	// Check if inventory file is already present
-	// if not, create one
-	fileInfo, err := os.CreateTemp("", inventoryDest)
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to create inventory file: %v", err),
-		})
-	}
-
-	tempFileName := fileInfo.Name()
-	log.Printf("Inventory %s was created", fileInfo.Name())
-
-	content := "---\nplugin: cloud.terraform.terraform_provider\n"
-	if stateFilePath != "" {
-		content += fmt.Sprintf("state_file: %s\n", stateFilePath)
-	}
-	if projectPath != "" {
-		content += fmt.Sprintf("project_path: %s\n", projectPath)
-	}
-
-	err = os.WriteFile(tempFileName, []byte(content), 0o600)
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to create inventory: %v", err),
+			Summary:  fmt.Sprintf("Failed to create inventory: %v", err),
 		})
 	}
 
@@ -174,7 +84,7 @@ func RemoveFile(filename string) diag.Diagnostics {
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to remove file %s: %v", filename, err),
+			Summary:  fmt.Sprintf("Failed to remove file %s: %v", filename, err),
 		})
 	}
 
@@ -192,7 +102,7 @@ func GetAllInventories(inventoryPrefix string) ([]string, diag.Diagnostics) {
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  fmt.Sprintf("Fail to read dir %s: %v", tempDir, err),
+			Summary:  fmt.Sprintf("Failed to read dir %s: %v", tempDir, err),
 		})
 	}
 
