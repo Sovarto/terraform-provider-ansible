@@ -2,14 +2,14 @@ package providerutils
 
 import (
 	"fmt"
+	"hash"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
-    "gopkg.in/yaml.v2"
-    "encoding/hex"
-	"crypto/sha256"
-    
+
+	"gopkg.in/yaml.v2"
+
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
 
@@ -120,60 +120,67 @@ func GetAllInventories(inventoryPrefix string) ([]string, diag.Diagnostics) {
 }
 
 type AnsiblePlay struct {
-    Roles []string `yaml:"roles"`
+	Roles []string `yaml:"roles"`
 }
 
 type AnsiblePlaybook []AnsiblePlay
 
 func uniqueRoles(roles []string) []string {
-    roleMap := make(map[string]bool)
-    var unique []string
-    for _, role := range roles {
-        if _, exists := roleMap[role]; !exists {
-            unique = append(unique, role)
-            roleMap[role] = true
-        }
-    }
-    return unique
+	roleMap := make(map[string]bool)
+	var unique []string
+	for _, role := range roles {
+		if _, exists := roleMap[role]; !exists {
+			unique = append(unique, role)
+			roleMap[role] = true
+		}
+	}
+	return unique
 }
 
 func ParsePlaybookRoles(playbookPath string) ([]string, error) {
-    var playbook AnsiblePlaybook
-    content, err := os.ReadFile(playbookPath)
-    if err != nil {
-        return nil, err
-    }
-    err = yaml.Unmarshal(content, &playbook)
-    if err != nil {
-        return nil, err
-    }
+	var playbook AnsiblePlaybook
+	content, err := os.ReadFile(playbookPath)
+	if err != nil {
+		return nil, err
+	}
+	err = yaml.Unmarshal(content, &playbook)
+	if err != nil {
+		return nil, err
+	}
 
-    // Extract roles from all plays
-    var allRoles []string
-    for _, play := range playbook {
-        allRoles = append(allRoles, play.Roles...)
-    }
+	// Extract roles from all plays
+	var allRoles []string
+	for _, play := range playbook {
+		allRoles = append(allRoles, play.Roles...)
+	}
 	allRoles = uniqueRoles(allRoles)
-    return allRoles, nil
+	return allRoles, nil
 }
 
-func HashDirectory(dirPath string) (string, error) {
-    hash := sha256.New()
-    err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-        if err != nil {
-            return err
-        }
-        if !info.IsDir() {
-            fileContent, err := os.ReadFile(path)
-            if err != nil {
-                return err
-            }
-            hash.Write(fileContent)
-        }
-        return nil
-    })
-    if err != nil {
-        return "", err
-    }
-    return hex.EncodeToString(hash.Sum(nil)), nil
+func HashDirectory(hash hash.Hash, dirPath string) error {
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			err := HashFile(hash, path)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func HashFile(hash hash.Hash, filePath string) error {
+	fileContent, err := os.ReadFile(filePath)
+	if err != nil {
+		return err
+	}
+	hash.Write(fileContent)
+	return nil
 }

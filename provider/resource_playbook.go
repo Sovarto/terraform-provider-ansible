@@ -264,7 +264,7 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'ansible_playbook_binary'!",
+			Summary:  "ERROR: couldn't get 'ansible_playbook_binary'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -273,7 +273,7 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'playbook'!",
+			Summary:  "ERROR: couldn't get 'playbook'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -282,7 +282,7 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'inventory'!",
+			Summary:  "ERROR: couldn't get 'inventory'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -293,36 +293,37 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	if err != nil {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't parse playbook roles!",
-			Detail:   ansiblePlaybook,
+			Summary:  "ERROR: couldn't parse playbook roles!",
+			Detail:   err.Error(),
 		})
 	}
 
-	totalHash := sha256.New()
+	hash := sha256.New()
 	for _, role := range roles {
-		roleHash, err := providerutils.HashDirectory(filepath.Join(filepath.Dir(playbook), role))
+		err := providerutils.HashDirectory(hash, filepath.Join(filepath.Dir(playbook), "roles", role))
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "ERROR: couldn't parse playbook roles!",
+				Summary:  "ERROR: couldn't hash playbook!",
 				Detail:   err.Error(),
 			})
 		}
-		totalHash.Write([]byte(roleHash))
 	}
 
-	finalHash := hex.EncodeToString(totalHash.Sum(nil))
+	playbook_hash := hex.EncodeToString(hash.Sum(nil))
 
-	if finalHash == data.Get("playbook_hash").(string) {
+	if playbook_hash == data.Get("playbook_hash").(string) {
 		return diags
 	}
+
+	data.Set("playbook_hash", playbook_hash)
 
 	argsTf, okay := data.Get("args").([]interface{})
 
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'args'!",
+			Summary:  "ERROR: couldn't get 'args'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
