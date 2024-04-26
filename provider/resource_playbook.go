@@ -132,7 +132,7 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'playbook'!",
+			Summary:  "ERROR: couldn't get 'playbook'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -141,7 +141,7 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'verbosity'!",
+			Summary:  "ERROR: couldn't get 'verbosity'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -150,7 +150,7 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'force_handlers'!",
+			Summary:  "ERROR: couldn't get 'force_handlers'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -159,7 +159,7 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'extra_vars'!",
+			Summary:  "ERROR: couldn't get 'extra_vars'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -168,7 +168,7 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'var_files'!",
+			Summary:  "ERROR: couldn't get 'var_files'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
