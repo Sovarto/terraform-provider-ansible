@@ -137,16 +137,6 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 		})
 	}
 
-	// optional settings
-	name, okay := data.Get("name").(string)
-	if !okay {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR [%s]: couldn't get 'name'!",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
 	verbosity, okay := data.Get("verbosity").(int)
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
@@ -200,10 +190,6 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 		args = append(args, "--force-handlers")
 	}
 
-	if name != "" {
-		args = append(args, "-e", "hostname="+name)
-	}
-
 	if len(varFiles) != 0 {
 		for _, varFile := range varFiles {
 			varFileString, okay := varFile.(string)
@@ -251,14 +237,6 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  fmt.Sprintf("ERROR [ansible-playbook]: couldn't set 'args'! %v", err),
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	if err := data.Set("temp_inventory_file", ""); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("ERROR [ansible-playbook]: couldn't set 'temp_inventory_file'! %v", err),
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -338,7 +316,6 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	if finalHash == data.Get("playbook_hash").(string) {
 		return diags
 	}
-
 
 	argsTf, okay := data.Get("args").([]interface{})
 
