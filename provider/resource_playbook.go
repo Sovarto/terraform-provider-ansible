@@ -304,8 +304,8 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 		if err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  "ERROR [%s]: couldn't parse playbook roles!",
-				Detail:   ansiblePlaybook,
+				Summary:  "ERROR: couldn't parse playbook roles!",
+				Detail:   err.Error(),
 			})
 		}
 		totalHash.Write([]byte(roleHash))
