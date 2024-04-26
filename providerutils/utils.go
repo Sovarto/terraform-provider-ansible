@@ -6,15 +6,16 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
+    "gopkg.in/yaml.v2"
+    "encoding/hex"
+	"crypto/sha256"
+    
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
 
 /*
 	CREATE OPTIONS
 */
-
-const DefaultHostGroup = "default"
 
 func InterfaceToString(arr []interface{}) ([]string, diag.Diagnostics) {
 	var diags diag.Diagnostics
@@ -116,4 +117,63 @@ func GetAllInventories(inventoryPrefix string) ([]string, diag.Diagnostics) {
 	}
 
 	return inventories, diags
+}
+
+type AnsiblePlay struct {
+    Roles []string `yaml:"roles"`
+}
+
+type AnsiblePlaybook []AnsiblePlay
+
+func uniqueRoles(roles []string) []string {
+    roleMap := make(map[string]bool)
+    var unique []string
+    for _, role := range roles {
+        if _, exists := roleMap[role]; !exists {
+            unique = append(unique, role)
+            roleMap[role] = true
+        }
+    }
+    return unique
+}
+
+func ParsePlaybookRoles(playbookPath string) ([]string, error) {
+    var playbook AnsiblePlaybook
+    content, err := os.ReadFile(playbookPath)
+    if err != nil {
+        return nil, err
+    }
+    err = yaml.Unmarshal(content, &playbook)
+    if err != nil {
+        return nil, err
+    }
+
+    // Extract roles from all plays
+    var allRoles []string
+    for _, play := range playbook {
+        allRoles = append(allRoles, play.Roles...)
+    }
+	allRoles = uniqueRoles(allRoles)
+    return allRoles, nil
+}
+
+func HashDirectory(dirPath string) (string, error) {
+    hash := sha256.New()
+    err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+        if !info.IsDir() {
+            fileContent, err := os.ReadFile(path)
+            if err != nil {
+                return err
+            }
+            hash.Write(fileContent)
+        }
+        return nil
+    })
+    if err != nil {
+        return "", err
+    }
+    return hex.EncodeToString(hash.Sum(nil)), nil
 }
