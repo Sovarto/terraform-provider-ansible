@@ -29,6 +29,7 @@ func resourcePlaybook() *schema.Resource {
 		ReadContext:   resourcePlaybookRead,
 		UpdateContext: resourcePlaybookUpdate,
 		DeleteContext: resourcePlaybookDelete,
+		CustomizeDiff: customizeDiff,
 
 		Schema: map[string]*schema.Schema{
 			// Required settings
@@ -122,6 +123,28 @@ func resourcePlaybook() *schema.Resource {
 			Create: schema.DefaultTimeout(60 * time.Minute), //nolint:gomnd
 		},
 	}
+}
+
+func customizeDiff(ctx context.Context, data *schema.ResourceDiff, meta interface{}) error {
+	playbook, okay := data.Get("playbook").(string)
+	if !okay {
+		return fmt.Errorf("ERROR: couldn't get 'playbook'")
+	}
+
+	currentHash, err := CalculatePlaybookHash(playbook)
+	if err != nil {
+		return fmt.Errorf("error reading file content to hash: %s", err)
+	}
+
+	oldHash, okay := data.Get("playbook_hash").(string)
+	if !okay || oldHash != currentHash {
+		err = data.SetNew("playbook_hash", currentHash)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 //nolint:maintidx
@@ -256,10 +279,6 @@ func resourcePlaybookRead(ctx context.Context, data *schema.ResourceData, meta i
 func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	if !data.HasChanges("ansible_playbook_binary", "playbook", "inventory") {
-		return diags
-	}
-
 	ansiblePlaybookBinary, okay := data.Get("ansible_playbook_binary").(string)
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
@@ -288,35 +307,6 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	}
 
 	log.Printf("LOG [ansible-playbook]: playbook = %s", playbook)
-
-	roles, err := providerutils.ParsePlaybookRoles(playbook)
-	if err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't parse playbook roles!",
-			Detail:   err.Error(),
-		})
-	}
-
-	hash := sha256.New()
-	for _, role := range roles {
-		err := providerutils.HashDirectory(hash, filepath.Join(filepath.Dir(playbook), "roles", role))
-		if err != nil {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "ERROR: couldn't hash playbook!",
-				Detail:   err.Error(),
-			})
-		}
-	}
-
-	playbook_hash := hex.EncodeToString(hash.Sum(nil))
-
-	if playbook_hash == data.Get("playbook_hash").(string) {
-		return diags
-	}
-
-	data.Set("playbook_hash", playbook_hash)
 
 	argsTf, okay := data.Get("args").([]interface{})
 
@@ -408,7 +398,7 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	go processOutput(stderrPipe, true)
 
 	// Wait for the command to finish
-	err = runAnsiblePlay.Wait()
+	err := runAnsiblePlay.Wait()
 	wg.Wait() // Also wait for output processing to complete
 
 	if err != nil {
@@ -446,6 +436,24 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	diags = append(diags, diagsFromUtils...)
 
 	return diags
+}
+
+func CalculatePlaybookHash(playbookPath string) (string, error) {
+	roles, err := providerutils.ParsePlaybookRoles(playbookPath)
+	if err != nil {
+		return "", fmt.Errorf("ERROR: couldn't parse playbook roles! %s", err)
+	}
+
+	hash := sha256.New()
+	for _, role := range roles {
+		err := providerutils.HashDirectory(hash, filepath.Join(filepath.Dir(playbookPath), "roles", role))
+		if err != nil {
+			return "", fmt.Errorf("ERROR: couldn't hash playbooks! %s", err)
+		}
+	}
+
+	playbook_hash := hex.EncodeToString(hash.Sum(nil))
+	return playbook_hash, nil
 }
 
 func resourcePlaybookDelete(_ context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
