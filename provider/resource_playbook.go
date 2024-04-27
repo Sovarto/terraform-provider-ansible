@@ -411,22 +411,6 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	err = runAnsiblePlay.Wait()
 	wg.Wait() // Also wait for output processing to complete
 
-	if err := data.Set("ansible_playbook_stderr", stderrBuf.String()); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't set 'ansible_playbook_stderr' ",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	if err := data.Set("ansible_playbook_stdout", stdoutBuf.String()); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't set 'ansible_playbook_stdout' ",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
 	if err != nil {
 		playbookFailMsg := stderrBuf.String()
 		if playbookFailMsg == "" {
@@ -438,6 +422,22 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 			Severity: diag.Error,
 			Summary:  playbookFailMsg,
 			Detail:   ansiblePlaybook,
+		})
+	}
+
+	if err := data.Set("ansible_playbook_stderr", stderrBuf.String()); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't set 'ansible_playbook_stderr' ",
+			Detail:   err.Error(),
+		})
+	}
+
+	if err := data.Set("ansible_playbook_stdout", stdoutBuf.String()); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't set 'ansible_playbook_stdout' ",
+			Detail:   err.Error(),
 		})
 	}
 
