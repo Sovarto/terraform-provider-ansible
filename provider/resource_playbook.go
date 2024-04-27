@@ -12,6 +12,7 @@ import (
 	"log"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,14 +94,6 @@ func resourcePlaybook() *schema.Resource {
 			},
 
 			// computed
-			// debug output
-			"args": {
-				Type:        schema.TypeList,
-				Elem:        &schema.Schema{Type: schema.TypeString},
-				Computed:    true,
-				Description: "Used to build arguments to run Ansible playbook with.",
-			},
-
 			"playbook_hash": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -150,7 +143,33 @@ func customizeDiff(ctx context.Context, data *schema.ResourceDiff, meta interfac
 //nolint:maintidx
 func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
-	// required settings
+
+	diagsFromUpdate := resourcePlaybookUpdate(ctx, data, meta)
+	diags = append(diags, diagsFromUpdate...)
+
+	return diags
+}
+
+func resourcePlaybookRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	return diags
+}
+
+func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
+	var diags diag.Diagnostics
+
+	allFieldsToRevert := []string{"playbook", "ansible_playbook_binary", "inventory", "verbosity", "force_handlers", "extra_vars", "var_files", "playbook_hash"}
+
+	ansiblePlaybookBinary, okay := data.Get("ansible_playbook_binary").(string)
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't get 'ansible_playbook_binary'!",
+			Detail:   ansiblePlaybook,
+		})
+	}
+
 	playbook, okay := data.Get("playbook").(string)
 	if !okay {
 		diags = append(diags, diag.Diagnostic{
@@ -159,6 +178,17 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 			Detail:   ansiblePlaybook,
 		})
 	}
+
+	inventory, okay := data.Get("inventory").(string)
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't get 'inventory'!",
+			Detail:   ansiblePlaybook,
+		})
+	}
+
+	log.Printf("LOG [ansible-playbook]: playbook = %s", playbook)
 
 	verbosity, okay := data.Get("verbosity").(int)
 	if !okay {
@@ -195,9 +225,6 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 			Detail:   ansiblePlaybook,
 		})
 	}
-
-	// Generate ID
-	data.SetId(time.Now().String())
 
 	/********************
 	* 	PREP THE OPTIONS (ARGS)
@@ -256,66 +283,9 @@ func resourcePlaybookCreate(ctx context.Context, data *schema.ResourceData, meta
 	log.Print("[ANSIBLE ARGS]:")
 	log.Print(args)
 
-	if err := data.Set("args", args); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  fmt.Sprintf("ERROR [ansible-playbook]: couldn't set 'args'! %v", err),
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	diagsFromUpdate := resourcePlaybookUpdate(ctx, data, meta)
-	diags = append(diags, diagsFromUpdate...)
-
-	return diags
-}
-
-func resourcePlaybookRead(ctx context.Context, data *schema.ResourceData, meta interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	return diags
-}
-
-func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
-	var diags diag.Diagnostics
-
-	ansiblePlaybookBinary, okay := data.Get("ansible_playbook_binary").(string)
-	if !okay {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't get 'ansible_playbook_binary'!",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	playbook, okay := data.Get("playbook").(string)
-	if !okay {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't get 'playbook'!",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	inventory, okay := data.Get("inventory").(string)
-	if !okay {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't get 'inventory'!",
-			Detail:   ansiblePlaybook,
-		})
-	}
-
-	log.Printf("LOG [ansible-playbook]: playbook = %s", playbook)
-
-	argsTf, okay := data.Get("args").([]interface{})
-
-	if !okay {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't get 'args'!",
-			Detail:   ansiblePlaybook,
-		})
+	if diags.HasError() {
+		RevertStateChanges(data, allFieldsToRevert...)
+		return diags
 	}
 
 	inventoryFileNamePrefix := ".inventory-"
@@ -327,108 +297,144 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 
 	log.Printf("Temp Inventory File: %s", tempInventoryFile)
 
-	// ********************************* RUN PLAYBOOK ********************************
-
-	args := []string{}
-
 	args = append(args, "-i", tempInventoryFile)
 
-	for _, arg := range argsTf {
-		tmpArg, okay := arg.(string)
-		if !okay {
-			diags = append(diags, diag.Diagnostic{
-				Severity: diag.Error,
-				Summary:  "ERROR [ansible-playbook]: couldn't assert type: string",
-				Detail:   ansiblePlaybook,
-			})
-		}
-
-		args = append(args, tmpArg)
+	if diags.HasError() {
+		RevertStateChanges(data, allFieldsToRevert...)
+		return diags
 	}
 
 	runAnsiblePlay := exec.Command(ansiblePlaybookBinary, args...)
 
 	// Create pipes for the output and error streams
-	stdoutPipe, _ := runAnsiblePlay.StdoutPipe()
-	// if err != nil {
-	// TODO: handle error
-	// }
+	stdoutPipe, err := runAnsiblePlay.StdoutPipe()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Error creating stdout pipe",
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 
-	stderrPipe, _ := runAnsiblePlay.StderrPipe()
-	// if err != nil {
-	// TODO: handle error
-	// }
+	stderrPipe, err := runAnsiblePlay.StderrPipe()
+	if err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Error creating stderr pipe",
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 
 	// Start the command asynchronously
-	runAnsiblePlay.Start()
-	// if err := runAnsiblePlay.Start(); err != nil {
-	// TODO: handle error
-	// }
+	if err := runAnsiblePlay.Start(); err != nil {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Error starting the command",
+			Detail:   err.Error(),
+		})
+		return diags
+	}
 
-	// Use a wait group to wait for the output processing to complete
 	var wg sync.WaitGroup
 	wg.Add(2)
 
-	var stderrBuf bytes.Buffer
-	var stdoutBuf bytes.Buffer
+	var stderrBuf, stdoutBuf bytes.Buffer
 
 	// Function to read and process output
-	processOutput := func(pipe io.ReadCloser, isStderr bool) {
+	processOutput := func(pipe io.ReadCloser, buffer *bytes.Buffer, isStderr bool) {
 		defer wg.Done()
 
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
 			line := scanner.Text()
+			buffer.WriteString(line + "\n")
 			if isStderr {
 				tflog.Error(ctx, line)
-				stderrBuf.WriteString(line + "\n")
 			} else {
-				tflog.Debug(ctx, line)
-				stdoutBuf.WriteString(line + "\n")
+				tflog.Info(ctx, line)
 			}
 		}
 
-		// if err := scanner.Err(); err != nil {
-		// TODO: handle error
-		// }
+		if err := scanner.Err(); err != nil {
+			var label string
+
+			if isStderr {
+				label = "STDERR"
+			} else {
+				label = "STDOUT"
+			}
+
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  "Error reading output",
+				Detail:   "There was an error reading " + label + ": " + err.Error(),
+			})
+		}
 	}
 
 	// Read from both outputs in separate goroutines
-	go processOutput(stdoutPipe, false)
-	go processOutput(stderrPipe, true)
+	go processOutput(stdoutPipe, &stdoutBuf, false)
+	go processOutput(stderrPipe, &stderrBuf, true)
 
 	// Wait for the command to finish
-	err := runAnsiblePlay.Wait()
+	err = runAnsiblePlay.Wait()
 	wg.Wait() // Also wait for output processing to complete
 
 	if err != nil {
-		playbookFailMsg := stderrBuf.String()
-		if playbookFailMsg == "" {
-			tflog.Error(ctx, "playbookFailMsg is empty although it shouldn't")
-			playbookFailMsg = "playbookFailMsg is empty although it shouldn't"
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "Ansible playbook command finished with an error: " + err.Error(),
+			Detail:   "STDERR:\n" + stderrBuf.String() + "\n\nSTDOUT:\n" + stdoutBuf.String(),
+		})
+
+		if diags.HasError() {
+			RevertStateChanges(data, allFieldsToRevert...)
+		}
+	} else {
+		if len(stderrBuf.String()) > 0 {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Warning,
+				Summary:  "Error output from Ansible",
+				Detail:   stderrBuf.String(),
+			})
+		}
+		errorKeywords := []string{"error", "fatal:", "failed:"}
+		stdout := stdoutBuf.String()
+		if len(stdout) > 0 {
+			stdoutLower := strings.ToLower(stdout)
+			for _, keyword := range errorKeywords {
+				if strings.Contains(stdoutLower, keyword) {
+					diags = append(diags, diag.Diagnostic{
+						Severity: diag.Warning,
+						Summary:  "Standard output from Ansible",
+						Detail:   stdout,
+					})
+					break
+				}
+			}
 		}
 
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  playbookFailMsg,
-			Detail:   ansiblePlaybook,
-		})
-	}
+		if data.Id() == "" {
+			data.SetId(time.Now().String())
+		}
 
-	if err := data.Set("ansible_playbook_stderr", stderrBuf.String()); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't set 'ansible_playbook_stderr' ",
-			Detail:   err.Error(),
-		})
-	}
+		if err := data.Set("ansible_playbook_stderr", stderrBuf.String()); err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "ERROR: couldn't set 'ansible_playbook_stderr' ",
+				Detail:   err.Error(),
+			})
+		}
 
-	if err := data.Set("ansible_playbook_stdout", stdoutBuf.String()); err != nil {
-		diags = append(diags, diag.Diagnostic{
-			Severity: diag.Error,
-			Summary:  "ERROR: couldn't set 'ansible_playbook_stdout' ",
-			Detail:   err.Error(),
-		})
+		if err := data.Set("ansible_playbook_stdout", stdoutBuf.String()); err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "ERROR: couldn't set 'ansible_playbook_stdout' ",
+				Detail:   err.Error(),
+			})
+		}
 	}
 
 	diagsFromUtils = providerutils.RemoveFile(tempInventoryFile)
@@ -448,8 +454,13 @@ func CalculatePlaybookHash(playbookPath string) (string, error) {
 	for _, role := range roles {
 		err := providerutils.HashDirectory(hash, filepath.Join(filepath.Dir(playbookPath), "roles", role))
 		if err != nil {
-			return "", fmt.Errorf("ERROR: couldn't hash playbooks! %s", err)
+			return "", fmt.Errorf("ERROR: couldn't hash playbook roles! %s", err)
 		}
+	}
+
+	err = providerutils.HashFile(hash, playbookPath)
+	if err != nil {
+		return "", fmt.Errorf("ERROR: couldn't hash playbook! %s", err)
 	}
 
 	playbook_hash := hex.EncodeToString(hash.Sum(nil))
@@ -462,4 +473,13 @@ func resourcePlaybookDelete(_ context.Context, data *schema.ResourceData, _ inte
 	data.SetId("")
 
 	return diags
+}
+
+func RevertStateChanges(data *schema.ResourceData, fields ...string) {
+	for _, field := range fields {
+		if data.HasChange(field) {
+			previousValue, _ := data.GetChange(field)
+			data.Set(field, previousValue)
+		}
+	}
 }
