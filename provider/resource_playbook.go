@@ -126,6 +126,7 @@ func resourcePlaybook() *schema.Resource {
 }
 
 func customizeDiff(ctx context.Context, data *schema.ResourceDiff, meta interface{}) error {
+	fmt.Println("In customizeDiff")
 	playbook, okay := data.Get("playbook").(string)
 	if !okay {
 		return fmt.Errorf("ERROR: couldn't get 'playbook'")
@@ -136,7 +137,10 @@ func customizeDiff(ctx context.Context, data *schema.ResourceDiff, meta interfac
 		return fmt.Errorf("error reading file content to hash: %s", err)
 	}
 
+	fmt.Printf("Current hash: %s", currentHash)
+
 	oldHash, okay := data.Get("playbook_hash").(string)
+	fmt.Printf("Old hash: %s", oldHash)
 	if !okay || oldHash != currentHash {
 		err = data.SetNew("playbook_hash", currentHash)
 		if err != nil {
