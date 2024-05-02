@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -20,6 +20,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/sovarto/terraform-provider-ansible/providerutils"
+	"github.com/sovarto/terraform-provider-ansible/results_parser"
 )
 
 const ansiblePlaybook = "ansible-playbook"
@@ -85,6 +86,13 @@ func resourcePlaybook() *schema.Resource {
 				Description: "A map of additional variables as: { keyString = \"value-1\", keyList = [\"list-value-1\", \"list-value-2\"], ... }.",
 			},
 
+			"store_output_in_state": {
+				Type:        schema.TypeBool,
+				Required:    false,
+				Optional:    true,
+				Description: "Whether or not to store the output of running Ansible in the state. Enable only for debugging, because this is usually huge and may contain sensitive data.",
+			},
+
 			"var_files": { // adds @ at the beginning of filename
 				Type:        schema.TypeList,
 				Elem:        &schema.Schema{Type: schema.TypeString},
@@ -93,7 +101,6 @@ func resourcePlaybook() *schema.Resource {
 				Description: "List of variable files.",
 			},
 
-			// computed
 			"playbook_hash": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -110,6 +117,21 @@ func resourcePlaybook() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "An ansible-playbook CLI stderr output.",
+			},
+
+			"artifact_queries": {
+				Type:        schema.TypeMap,
+				Description: "Query the playbook artifact with JSONPath. The playbook artifact contains detailed information about every play and task, as well as the stdout from the playbook run.",
+				Required:    false,
+				Optional:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
+			},
+
+			"artifact_queries_results": {
+				Type:        schema.TypeMap,
+				Description: "Query the playbook artifact with JSONPath. The playbook artifact contains detailed information about every play and task, as well as the stdout from the playbook run.",
+				Computed:    true,
+				Elem:        &schema.Schema{Type: schema.TypeString},
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
@@ -159,7 +181,7 @@ func resourcePlaybookRead(ctx context.Context, data *schema.ResourceData, meta i
 func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ interface{}) diag.Diagnostics {
 	var diags diag.Diagnostics
 
-	allFieldsToRevert := []string{"playbook", "ansible_playbook_binary", "inventory", "verbosity", "force_handlers", "extra_vars", "var_files", "playbook_hash"}
+	allFieldsToRevert := []string{"playbook", "ansible_playbook_binary", "inventory", "verbosity", "force_handlers", "extra_vars", "var_files", "playbook_hash", "artifact_queries", "store_output_in_state"}
 
 	ansiblePlaybookBinary, okay := data.Get("ansible_playbook_binary").(string)
 	if !okay {
@@ -222,6 +244,24 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 		diags = append(diags, diag.Diagnostic{
 			Severity: diag.Error,
 			Summary:  "ERROR: couldn't get 'var_files'!",
+			Detail:   ansiblePlaybook,
+		})
+	}
+
+	storeOutputInState, okay := data.Get("store_output_in_state").(bool)
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't get 'store_output_in_state'!",
+			Detail:   ansiblePlaybook,
+		})
+	}
+
+	artifactQueries, okay := data.Get("artifact_queries").(map[string]interface{})
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't get 'artifact_queries'!",
 			Detail:   ansiblePlaybook,
 		})
 	}
@@ -305,6 +345,9 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	}
 
 	runAnsiblePlay := exec.Command(ansiblePlaybookBinary, args...)
+	currentEnv := os.Environ()
+	currentEnv = append(currentEnv, "ANSIBLE_STDOUT_CALLBACK=json")
+	runAnsiblePlay.Env = currentEnv
 
 	// Create pipes for the output and error streams
 	stdoutPipe, err := runAnsiblePlay.StdoutPipe()
@@ -400,19 +443,47 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 				Detail:   stderrBuf.String(),
 			})
 		}
-		errorKeywords := []string{"error", "fatal:", "failed:"}
-		stdout := stdoutBuf.String()
-		if len(stdout) > 0 {
-			stdoutLower := strings.ToLower(stdout)
-			for _, keyword := range errorKeywords {
-				if strings.Contains(stdoutLower, keyword) {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Warning,
-						Summary:  "Standard output from Ansible",
-						Detail:   stdout,
-					})
-					break
+
+		if len(artifactQueries) > 0 {
+			queries := make(map[string]providerutils.ArtifactQuery)
+			for key, jsonPath := range artifactQueries {
+				var artifactQuery providerutils.ArtifactQuery
+
+				artifactQuery.JSONPath = jsonPath.(string)
+
+				queries[key] = artifactQuery
+			}
+
+			err = providerutils.QueryPlaybookArtifact(stdoutBuf, queries)
+			if err != nil {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Error querying playbook artifacts: " + err.Error(),
+					Detail:   "STDERR:\n" + stderrBuf.String() + "\n\nSTDOUT:\n" + stdoutBuf.String(),
+				})
+			} else {
+				results := make(map[string]string)
+				for key, value := range queries {
+					results[key] = value.Result
 				}
+				data.Set("artifact_queries_results", results)
+			}
+		}
+
+		formattedOutput, hadFailure, err := results_parser.AnalyzeJSON(stdoutBuf)
+		if err != nil {
+			diags = append(diags, diag.Diagnostic{
+				Severity: diag.Error,
+				Summary:  "Error analyzing result JSON: " + err.Error(),
+				Detail:   "STDERR:\n" + stderrBuf.String() + "\n\nSTDOUT:\n" + stdoutBuf.String(),
+			})
+		} else {
+			if hadFailure {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Warning,
+					Summary:  "Ansible results:",
+					Detail:   formattedOutput,
+				})
 			}
 		}
 
@@ -428,7 +499,12 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 			})
 		}
 
-		if err := data.Set("ansible_playbook_stdout", stdoutBuf.String()); err != nil {
+		stdout := stdoutBuf.String()
+		if !storeOutputInState {
+			stdout = ""
+		}
+
+		if err := data.Set("ansible_playbook_stdout", stdout); err != nil {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
 				Summary:  "ERROR: couldn't set 'ansible_playbook_stdout' ",
