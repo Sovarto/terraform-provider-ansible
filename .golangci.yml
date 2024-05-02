@@ -1,39 +1,27 @@
-linters:
-  enable-all: true
+# Visit https://golangci-lint.run/ for usage documentation
+# and information on other useful linters
+issues:
+  max-per-linter: 0
+  max-same-issues: 0
 
-  disable:
-    # Abandoned, replaced by `unused`.
-    - deadcode
-    # Checks if package imports are in a list of acceptable packages.
-    - depguard
-    # Forces to handle more cases.
-    - exhaustivestruct  # Deprecated, replaced by check below.
-    - exhaustruct
-    # Drop-in replacement of `golint`.
-    - revive
-    - golint
-    # Deprecated.
-    - ifshort
-    - interfacer
-    # Deprecated. Use govet `fieldalignment`.
-    - maligned
-    # Deprecated. Replaced by `revive`.
-    - nosnakecase
-    - scopelint
-    - structcheck
-    - varcheck
-    # Imports order
-    - gci
-    - funlen
-    # Tool for code clone detection.
-    - dupl
-    - rowserrcheck
-    - sqlclosecheck
-    # Finds wasted assignment statements.
-    - wastedassign
-    # Deeply nested if statements.
-    - nestif
-    # Same as `cyclop` linter.
-    - gocognit
-    - gocyclo
-    - cyclop
+linters:
+  disable-all: true
+  enable:
+    - durationcheck
+    - errcheck
+    - exportloopref
+    - forcetypeassert
+    - godot
+    - gofmt
+    - gosimple
+    - ineffassign
+    - makezero
+    - misspell
+    - nilerr
+    - predeclared
+    - staticcheck
+    - tenv
+    - unconvert
+    - unparam
+    - unused
+    - vet

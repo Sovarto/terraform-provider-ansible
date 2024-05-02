@@ -1,19 +1,36 @@
-.terraform
-.terraform.lock.hcl
-actual_tfstate.json
+*.dll
+*.exe
+.DS_Store
+example.tf
+terraform.tfplan
 terraform.tfstate
-terraform.tfstate.backup
+bin/
+dist/
+modules-dev/
+/pkg/
+website/.vagrant
+website/.bundle
+website/build
+website/node_modules
+.vagrant/
+*.backup
+./*.tfstate
+.terraform/
+*.log
+*.bak
+*~
+.*.swp
+.idea
+*.iml
+*.test
+*.iml
 
-# binaries
-act
-golangci-lint
+website/vendor
+
+# Test exclusions
+!command/test-fixtures/**/*.tfstate
+!command/test-fixtures/**/.terraform/
+
+# Keep windows files with windows line endings
+*.winfile eol=crlf
 terraform-provider-ansible
-*.tar.gz
-
-# logs
-targets.log
-dryrun.log
-
-# ides
-.idea/
-.vscode/

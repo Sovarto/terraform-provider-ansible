@@ -1,76 +1,64 @@
-# Terraform Provider for Ansible
+# Terraform Provider Scaffolding (Terraform Plugin Framework)
 
-The Terraform Provider for Ansible provides a more straightforward and robust means of executing Ansible automation from Terraform than local-exec. Paired with the inventory plugin in [the Ansible cloud.terraform collection](https://github.com/ansible-collections/cloud.terraform), users can run Ansible playbooks and roles on infrastructure provisioned by Terraform. The provider also includes integrated ansible-vault support.
+_This template repository is built on the [Terraform Plugin Framework](https://github.com/hashicorp/terraform-plugin-framework). The template repository built on the [Terraform Plugin SDK](https://github.com/hashicorp/terraform-plugin-sdk) can be found at [terraform-provider-scaffolding](https://github.com/hashicorp/terraform-provider-scaffolding). See [Which SDK Should I Use?](https://developer.hashicorp.com/terraform/plugin/framework-benefits) in the Terraform documentation for additional information._
 
-This provider can be [found in the Terraform Registry here](https://registry.terraform.io/providers/sovarto/ansible/latest).
+This repository is a *template* for a [Terraform](https://www.terraform.io) provider. It is intended as a starting point for creating Terraform providers, containing:
 
-For more details on using Terraform and Ansible together see these blog posts:
+- A resource and a data source (`internal/provider/`),
+- Examples (`examples/`) and generated documentation (`docs/`),
+- Miscellaneous meta files.
 
-* [Terraforming clouds with Ansible](https://www.ansible.com/blog/terraforming-clouds-with-ansible)
-* [Walking on Clouds with Ansible](https://www.ansible.com/blog/walking-on-clouds-with-ansible)
-* [Providing Terraform with that Ansible Magic](https://www.ansible.com/blog/providing-terraform-with-that-ansible-magic)
+These files contain boilerplate code that you will need to edit to create your own Terraform provider. Tutorials for creating Terraform providers can be found on the [HashiCorp Developer](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework) platform. _Terraform Plugin Framework specific guides are titled accordingly._
 
+Please see the [GitHub template repository documentation](https://help.github.com/en/github/creating-cloning-and-archiving-repositories/creating-a-repository-from-a-template) for how to create a new repository from this template on GitHub.
+
+Once you've written your provider, you'll want to [publish it on the Terraform Registry](https://developer.hashicorp.com/terraform/registry/providers/publishing) so that others can use it.
 
 ## Requirements
 
-- install Go: [official installation guide](https://go.dev/doc/install)
-- install Terraform: [official installation guide](https://developer.hashicorp.com/terraform/tutorials/aws-get-started/install-cli)
-- install Ansible: [official installation guide](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.0
+- [Go](https://golang.org/doc/install) >= 1.21
 
-## Installation for Local Development
+## Building The Provider
 
-Run `make`. This will build a `terraform-provider-ansible` binary in the top level of the project. To get Terraform to use this binary, configure the [development overrides](https://developer.hashicorp.com/terraform/cli/config/config-file#development-overrides-for-provider-developers) for the provider installation. The easiest way to do this will be to create a config file with the following contents:
-
-```
-provider_installation {
-  dev_overrides {
-    "sovarto/ansible" = "/path/to/project/root"
-  }
-
-  direct {}
-}
-```
-
-The `/path/to/project/root` should point to the location where you have cloned this repo, where the `terraform-provider-ansible` binary will be built. You can then set the `TF_CLI_CONFIG_FILE` environment variable to point to this config file, and Terraform will use the provider binary you just built.
-
-### Testing
-
-Lint:
+1. Clone the repository
+1. Enter the repository directory
+1. Build the provider using the Go `install` command:
 
 ```shell
-curl -L https://github.com/golangci/golangci-lint/releases/download/v1.50.1/golangci-lint-1.50.1-linux-amd64.tar.gz \
-    | tar --wildcards -xzf - --strip-components 1 "**/golangci-lint"
-curl -L https://github.com/nektos/act/releases/download/v0.2.34/act_Linux_x86_64.tar.gz \
-    | tar -xzf - act
-
-# linters
-./golangci-lint run -v
-
-# tests
-make test
-
-# GH actions locally
-./act
+go install
 ```
 
-### Examples
-The [examples](./examples/) subdirectory contains a usage example for this provider.
+## Adding Dependencies
 
-## Release notes
+This provider uses [Go modules](https://github.com/golang/go/wiki/Modules).
+Please see the Go documentation for the most up to date information about using Go modules.
 
-See the [generated changelog](https://github.com/ansible/terraform-provider-ansible/tree/main/CHANGELOG.rst).
+To add a new dependency `github.com/author/dependency` to your Terraform provider:
 
-## Releasing
+```shell
+go get github.com/author/dependency
+go mod tidy
+```
 
-To release a new version of the provider:
+Then commit the changes to `go.mod` and `go.sum`.
 
-1. Update the version number in https://github.com/ansible/terraform-provider-ansible/blob/main/examples/provider/provider.tf
-2. Run `go generate` to regenerate docs
-3. Run `antsibull-changelog release --version <version>` to release a new version of the project.
-4. Commit changes
-5. Push a new tag (this should trigger an automated release process to the Terraform Registry)
-6. Verify the new version is published at https://registry.terraform.io/providers/ansible/ansible/latest
+## Using the provider
 
-## Licensing
+Fill this in for each provider
 
-GNU General Public License v3.0. See [LICENSE](/LICENSE) for full text.
+## Developing the Provider
+
+If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (see [Requirements](#requirements) above).
+
+To compile the provider, run `go install`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
+
+To generate or update documentation, run `go generate`.
+
+In order to run the full suite of Acceptance tests, run `make testacc`.
+
+*Note:* Acceptance tests create real resources, and often cost money to run.
+
+```shell
+make testacc
+```
