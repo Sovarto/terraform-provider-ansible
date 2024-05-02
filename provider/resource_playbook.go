@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -93,7 +93,6 @@ func resourcePlaybook() *schema.Resource {
 				Description: "List of variable files.",
 			},
 
-			// computed
 			"playbook_hash": {
 				Type:        schema.TypeString,
 				Computed:    true,
@@ -110,6 +109,26 @@ func resourcePlaybook() *schema.Resource {
 				Type:        schema.TypeString,
 				Computed:    true,
 				Description: "An ansible-playbook CLI stderr output.",
+			},
+
+			"artifact_queries": {
+				Type:        schema.TypeMap,
+				Description: "Query the playbook artifact with JSONPath. The playbook artifact contains detailed information about every play and task, as well as the stdout from the playbook run.",
+				Optional:    true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"jsonpath": {
+							Type:        schema.TypeString,
+							Required:    true,
+							Description: "JSONPath expression to query the artifact.",
+						},
+						"result": {
+							Type:        schema.TypeString,
+							Computed:    true,
+							Description: "Result of the query, serialized as a JSON string. Result may be empty if the specified field or map key cannot be located.",
+						},
+					},
+				},
 			},
 		},
 		Timeouts: &schema.ResourceTimeout{
@@ -226,6 +245,15 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 		})
 	}
 
+	artifactQueries, okay := data.Get("artifact_queries").(map[string]interface{})
+	if !okay {
+		diags = append(diags, diag.Diagnostic{
+			Severity: diag.Error,
+			Summary:  "ERROR: couldn't get 'artifact_queries'!",
+			Detail:   ansiblePlaybook,
+		})
+	}
+
 	/********************
 	* 	PREP THE OPTIONS (ARGS)
 	 */
@@ -305,6 +333,9 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 	}
 
 	runAnsiblePlay := exec.Command(ansiblePlaybookBinary, args...)
+	currentEnv := os.Environ()
+	currentEnv = append(currentEnv, "ANSIBLE_STDOUT_CALLBACK=json")
+	runAnsiblePlay.Env = currentEnv
 
 	// Create pipes for the output and error streams
 	stdoutPipe, err := runAnsiblePlay.StdoutPipe()
@@ -400,18 +431,35 @@ func resourcePlaybookUpdate(ctx context.Context, data *schema.ResourceData, _ in
 				Detail:   stderrBuf.String(),
 			})
 		}
-		errorKeywords := []string{"error", "fatal:", "failed:"}
-		stdout := stdoutBuf.String()
-		if len(stdout) > 0 {
-			stdoutLower := strings.ToLower(stdout)
-			for _, keyword := range errorKeywords {
-				if strings.Contains(stdoutLower, keyword) {
-					diags = append(diags, diag.Diagnostic{
-						Severity: diag.Warning,
-						Summary:  "Standard output from Ansible",
-						Detail:   stdout,
-					})
-					break
+
+		if len(artifactQueries) > 0 {
+			queries := make(map[string]providerutils.ArtifactQuery)
+			for key, rawValue := range artifactQueries {
+				// Assert the value to the expected map type
+				if queryMap, ok := rawValue.(map[string]interface{}); ok {
+					// Initialize a new ArtifactQuery to hold the converted data
+					var artifactQuery providerutils.ArtifactQuery
+
+					// Safely attempt to retrieve and assign the JSONPath
+					if jsonPath, exists := queryMap["jsonpath"].(string); exists {
+						artifactQuery.JSONPath = jsonPath
+					}
+
+					// Assign the constructed ArtifactQuery to your result map
+					queries[key] = artifactQuery
+				}
+			}
+
+			err = providerutils.QueryPlaybookArtifact(stdoutBuf, queries)
+			if err != nil {
+				diags = append(diags, diag.Diagnostic{
+					Severity: diag.Error,
+					Summary:  "Error querying playbook artifacts: " + err.Error(),
+					Detail:   "STDERR:\n" + stderrBuf.String() + "\n\nSTDOUT:\n" + stdoutBuf.String(),
+				})
+			} else {
+				for key, _ := range artifactQueries {
+					data.Set(fmt.Sprintf("artifact_queries.%s.result", key), queries[key].Result)
 				}
 			}
 		}

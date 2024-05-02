@@ -1,6 +1,8 @@
 package providerutils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"hash"
 	"log"
@@ -9,6 +11,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/client-go/util/jsonpath"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 )
@@ -182,5 +185,49 @@ func HashFile(hash hash.Hash, filePath string) error {
 		return err
 	}
 	hash.Write(fileContent)
+	return nil
+}
+
+// Adapted from https://github.com/marshallford/terraform-provider-ansible/blob/main/pkg/ansible/utils.go#L25
+func jsonPath(data []byte, template string) (string, error) {
+	var blob interface{}
+	if err := json.Unmarshal(data, &blob); err != nil {
+		return "", err
+	}
+
+	jsonPath := jsonpath.New(template)
+	jsonPath.AllowMissingKeys(true)
+
+	err := jsonPath.Parse(fmt.Sprintf("{%s}", template))
+	if err != nil {
+		return "", err
+	}
+
+	output := new(bytes.Buffer)
+	if err := jsonPath.Execute(output, blob); err != nil {
+		return "", err
+	}
+
+	return output.String(), nil
+}
+
+// Adapted from https://github.com/marshallford/terraform-provider-ansible/blob/main/pkg/ansible/navigator_query.go#L9
+type ArtifactQuery struct {
+	JSONPath string
+	Result   string
+}
+
+func QueryPlaybookArtifact(stdout bytes.Buffer, queries map[string]ArtifactQuery) error {
+
+	for name, query := range queries {
+		result, err := jsonPath(stdout.Bytes(), query.JSONPath)
+		if err != nil {
+			return fmt.Errorf("failed to query playbook artifact with JSONPath, %w", err)
+		}
+
+		query.Result = result
+		queries[name] = query
+	}
+
 	return nil
 }
