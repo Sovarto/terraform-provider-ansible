@@ -6,7 +6,7 @@
       debug:
         msg: "Hello World3"
 
-    - name: Execute a command that fails
-      command: /bin/sh -c "echo 'This is an error' >&2; exit 1"
-      register: result
-      failed_when: result.rc != 0
+    # - name: Execute a command that fails
+    #   command: /bin/sh -c "echo 'this is a normal text' && echo 'This is an error' >&2; exit 1"
+    #   register: result
+    #   failed_when: result.rc != 0

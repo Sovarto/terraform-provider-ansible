@@ -23,7 +23,9 @@ resource "ansible_playbook" "hello_world" {
       jsonpath = "$.stats.localhost.failures"
     }
     stdout = {
-      jsonpath = "$.plays[?(@.play.name=='Hello World Playbook')].tasks[*].hosts[*]"
+      jsonpath = "$.plays[?(@.play.name=='Hello World Playbook')].tasks[*].hosts.*.msg"
+      json_output = false
+      fail_on_missing_key = true
     }
   }
 }
