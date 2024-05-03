@@ -236,14 +236,19 @@ func (r *PlaybookResource) Delete(ctx context.Context, req resource.DeleteReques
 }
 
 func (r *PlaybookResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
-	var plan PlaybookResourceModel
-	var config PlaybookResourceModel
+
+	var plan *PlaybookResourceModel
+	var config *PlaybookResourceModel
 	var state *PlaybookResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
 
 	if resp.Diagnostics.HasError() {
+		return
+	}
+
+	if plan == nil || config == nil {
 		return
 	}
 
