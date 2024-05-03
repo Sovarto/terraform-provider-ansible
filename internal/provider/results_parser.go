@@ -18,6 +18,7 @@ type Host struct {
 	Failed      bool   `json:"failed"`
 	Unreachable bool   `json:"unreachable"`
 	Stderr      string `json:"stderr"`
+	Stdout      string `json:"stdout"`
 	Msg         string `json:"msg"`
 }
 
@@ -79,6 +80,9 @@ func AnalyzeJSON(buffer bytes.Buffer) (string, bool, error) {
 						}
 						if len(host.Stderr) > 0 {
 							output += fmt.Sprintf("      Stderr:\t%s\n", host.Stderr)
+						}
+						if len(host.Stdout) > 0 {
+							output += fmt.Sprintf("      Stdout:\t%s\n", host.Stdout)
 						}
 					}
 				}

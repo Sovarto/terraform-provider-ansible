@@ -46,14 +46,18 @@ type PlaybookResourceModel struct {
 }
 
 type ArtifactQueryModel struct {
-	JSONPath types.String `tfsdk:"jsonpath"`
-	Result   types.String `tfsdk:"result"`
+	JSONPath         types.String `tfsdk:"jsonpath"`
+	Result           types.String `tfsdk:"result"`
+	FailOnMissingKey types.Bool   `tfsdk:"fail_on_missing_key"`
+	JsonOutput       types.Bool   `tfsdk:"json_output"`
 }
 
 func (ArtifactQueryModel) AttrTypes() map[string]attr.Type {
 	return map[string]attr.Type{
-		"jsonpath": types.StringType,
-		"result":   types.StringType,
+		"jsonpath":            types.StringType,
+		"result":              types.StringType,
+		"fail_on_missing_key": types.BoolType,
+		"json_output":         types.BoolType,
 	}
 }
 
@@ -62,6 +66,8 @@ func (m ArtifactQueryModel) Value(ctx context.Context, query *ArtifactQuery) dia
 
 	query.JSONPath = m.JSONPath.ValueString()
 	query.Result = m.Result.ValueString()
+	query.FailOnMissingKey = m.FailOnMissingKey.ValueBool()
+	query.JsonOutput = m.JsonOutput.ValueBool()
 
 	return diags
 }
@@ -71,6 +77,8 @@ func (m *ArtifactQueryModel) Set(ctx context.Context, query ArtifactQuery) diag.
 
 	m.JSONPath = types.StringValue(query.JSONPath)
 	m.Result = types.StringValue(query.Result)
+	m.FailOnMissingKey = types.BoolValue(query.FailOnMissingKey)
+	m.JsonOutput = types.BoolValue(query.JsonOutput)
 
 	return diags
 }
@@ -124,6 +132,20 @@ func (r *PlaybookResource) Schema(ctx context.Context, req resource.SchemaReques
 						"jsonpath": schema.StringAttribute{
 							Description: "JSONPath expression.",
 							Required:    true,
+						},
+						"json_output": schema.BoolAttribute{
+							Optional:    true,
+							Computed:    true,
+							Required:    false,
+							Default:     booldefault.StaticBool(false),
+							Description: "Output the result as valid JSON. Set this to true, if you select a whole sub-object or multiple values. Leave it at false, if you select the value of a single property.",
+						},
+						"fail_on_missing_key": schema.BoolAttribute{
+							Optional:    true,
+							Computed:    true,
+							Required:    false,
+							Default:     booldefault.StaticBool(false),
+							Description: "Fail the resource, if there is no key specified by the JSON path",
 						},
 						"result": schema.StringAttribute{
 							Description: "Result of the query. Result may be empty if a field or map key cannot be located.",
