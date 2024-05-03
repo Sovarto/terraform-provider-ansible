@@ -216,7 +216,7 @@ func (r *PlaybookResource) Delete(ctx context.Context, req resource.DeleteReques
 func (r *PlaybookResource) ModifyPlan(ctx context.Context, req resource.ModifyPlanRequest, resp *resource.ModifyPlanResponse) {
 	var plan PlaybookResourceModel
 	var config PlaybookResourceModel
-	var state PlaybookResourceModel
+	var state *PlaybookResourceModel
 	resp.Diagnostics.Append(req.Plan.Get(ctx, &plan)...)
 	resp.Diagnostics.Append(req.Config.Get(ctx, &config)...)
 	resp.Diagnostics.Append(req.State.Get(ctx, &state)...)
@@ -237,7 +237,7 @@ func (r *PlaybookResource) ModifyPlan(ctx context.Context, req resource.ModifyPl
 
 	planHash := types.StringValue(currentHash)
 	resp.Plan.SetAttribute(ctx, path.Root("playbook_hash"), planHash)
-	if !plan.Playbook.Equal(state.Playbook) || !plan.Inventory.Equal(state.Inventory) ||
+	if state == nil || !plan.Playbook.Equal(state.Playbook) || !plan.Inventory.Equal(state.Inventory) ||
 		!plan.ExtraVars.Equal(state.ExtraVars) || !planHash.Equal(state.PlaybookHash) {
 
 		if config.StoreOutputInState.ValueBool() {
