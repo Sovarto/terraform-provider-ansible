@@ -59,11 +59,35 @@ func RemoveFile(filename string, diags *diag.Diagnostics) {
 	}
 }
 
+type Role struct {
+	Name string
+}
+
 type AnsiblePlay struct {
-	Roles []string `yaml:"roles"`
+	Roles []Role `yaml:"roles"`
 }
 
 type AnsiblePlaybook []AnsiblePlay
+
+func (r *Role) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	// Try to unmarshal into a string
+	var roleStr string
+	if err := unmarshal(&roleStr); err == nil {
+		r.Name = roleStr
+		return nil
+	}
+
+	// Try to unmarshal into a map
+	var roleMap map[string]interface{}
+	if err := unmarshal(&roleMap); err == nil {
+		if roleName, ok := roleMap["role"].(string); ok {
+			r.Name = roleName
+		}
+		return nil
+	}
+
+	return fmt.Errorf("failed to unmarshal role")
+}
 
 func uniqueRoles(roles []string) []string {
 	roleMap := make(map[string]bool)
@@ -91,7 +115,9 @@ func ParsePlaybookRoles(playbookPath string) ([]string, error) {
 	// Extract roles from all plays
 	var allRoles []string
 	for _, play := range playbook {
-		allRoles = append(allRoles, play.Roles...)
+		for _, role := range play.Roles {
+			allRoles = append(allRoles, role.Name)
+		}
 	}
 	allRoles = uniqueRoles(allRoles)
 	return allRoles, nil

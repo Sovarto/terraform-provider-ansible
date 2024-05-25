@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/google/uuid"
@@ -288,6 +289,14 @@ func (r *PlaybookResource) ImportState(ctx context.Context, req resource.ImportS
 	resource.ImportStatePassthroughID(ctx, path.Root("id"), req, resp)
 }
 
+func directoryExists(path string) bool {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return false
+	}
+	return info.IsDir()
+}
+
 func calculatePlaybookHash(playbookPath string) (string, error) {
 	roles, err := ParsePlaybookRoles(playbookPath)
 	if err != nil {
@@ -296,9 +305,12 @@ func calculatePlaybookHash(playbookPath string) (string, error) {
 
 	hash := sha256.New()
 	for _, role := range roles {
-		err := HashDirectory(hash, filepath.Join(filepath.Dir(playbookPath), "roles", role))
-		if err != nil {
-			return "", fmt.Errorf("ERROR: couldn't hash playbook roles! %s", err)
+		path := filepath.Join(filepath.Dir(playbookPath), "roles", role)
+		if directoryExists(path) {
+			err := HashDirectory(hash, path)
+			if err != nil {
+				return "", fmt.Errorf("ERROR: couldn't hash playbook roles! %s", err)
+			}
 		}
 	}
 
