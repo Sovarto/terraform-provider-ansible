@@ -14,12 +14,17 @@ type HostStats struct {
 
 type Stats map[string]HostStats
 
+type Result struct {
+	Failed bool   `json:"failed"`
+	Stderr string `json:"stderr"`
+	Stdout string `json:"stdout"`
+	Msg    string `json:"msg"`
+}
+
 type Host struct {
-	Failed      bool   `json:"failed"`
-	Unreachable bool   `json:"unreachable"`
-	Stderr      string `json:"stderr"`
-	Stdout      string `json:"stdout"`
-	Msg         string `json:"msg"`
+	Result
+	Unreachable bool     `json:"unreachable"`
+	Results     []Result `json:"results"`
 }
 
 type Task struct {
@@ -39,6 +44,22 @@ type Play struct {
 type Root struct {
 	Plays []Play `json:"plays"`
 	Stats Stats  `json:"stats"`
+}
+
+func printFailedInfo(result Result, indent string) string {
+	output := ""
+
+	if len(result.Msg) > 0 {
+		output += fmt.Sprintf("%sMsg:\t%s\n", indent, result.Msg)
+	}
+	if len(result.Stderr) > 0 {
+		output += fmt.Sprintf("%sStderr:\t%s\n", indent, result.Stderr)
+	}
+	if len(result.Stdout) > 0 {
+		output += fmt.Sprintf("%sStdout:\t%s\n", indent, result.Stdout)
+	}
+
+	return output
 }
 
 func AnalyzeJSON(buffer bytes.Buffer) (string, bool, error) {
@@ -75,14 +96,19 @@ func AnalyzeJSON(buffer bytes.Buffer) (string, bool, error) {
 
 						output += fmt.Sprintf("    HOST <%s>\n", hostName)
 
-						if len(host.Msg) > 0 {
-							output += fmt.Sprintf("      Msg:\t%s\n", host.Msg)
-						}
-						if len(host.Stderr) > 0 {
-							output += fmt.Sprintf("      Stderr:\t%s\n", host.Stderr)
-						}
-						if len(host.Stdout) > 0 {
-							output += fmt.Sprintf("      Stdout:\t%s\n", host.Stdout)
+						output += printFailedInfo(host.Result, "      ")
+						if host.Results != nil && len(host.Results) > 0 {
+							resultsOutput := ""
+							for _, result := range host.Results {
+								if result.Failed {
+									resultsOutput += printFailedInfo(result, "        ")
+								}
+							}
+
+							if len(resultsOutput) > 0 {
+								output += "      RESULTS\n"
+								output += resultsOutput
+							}
 						}
 					}
 				}
