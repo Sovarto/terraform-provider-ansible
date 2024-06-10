@@ -35,7 +35,7 @@ func Execute(ctx context.Context, diags *diag.Diagnostics, data *PlaybookResourc
 
 	if len(extraVars) != 0 {
 		for key, val := range extraVars {
-			args = append(args, "-e", key+"="+val)
+			args = append(args, "-e", key+"='"+val+"'")
 		}
 	}
 
