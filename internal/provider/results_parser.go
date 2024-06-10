@@ -14,11 +14,27 @@ type HostStats struct {
 
 type Stats map[string]HostStats
 
+type MsgType struct {
+	StringValue string
+	ArrayValue  []interface{}
+	IsString    bool
+}
+
+func (m *MsgType) UnmarshalJSON(data []byte) error {
+	if data[0] == '"' {
+		m.IsString = true
+		return json.Unmarshal(data, &m.StringValue)
+	}
+	m.IsString = false
+	return json.Unmarshal(data, &m.ArrayValue)
+}
+
 type Result struct {
-	Failed bool   `json:"failed"`
-	Stderr string `json:"stderr"`
-	Stdout string `json:"stdout"`
-	Msg    string `json:"msg"`
+	Failed bool    `json:"failed"`
+	Stderr string  `json:"stderr"`
+	Stdout string  `json:"stdout"`
+	Msg    MsgType `json:"msg"`
+	Reason string  `json:"reason"`
 }
 
 type Host struct {
@@ -49,8 +65,11 @@ type Root struct {
 func printFailedInfo(result Result, indent string) string {
 	output := ""
 
-	if len(result.Msg) > 0 {
-		output += fmt.Sprintf("%sMsg:\t%s\n", indent, result.Msg)
+	if result.Msg.IsString && len(result.Msg.StringValue) > 0 {
+		output += fmt.Sprintf("%sMsg:\t%s\n", indent, result.Msg.StringValue)
+	}
+	if len(result.Reason) > 0 {
+		output += fmt.Sprintf("%sReason:\t%s\n", indent, result.Reason)
 	}
 	if len(result.Stderr) > 0 {
 		output += fmt.Sprintf("%sStderr:\t%s\n", indent, result.Stderr)
